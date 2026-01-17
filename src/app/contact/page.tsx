@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
@@ -13,11 +13,25 @@ export default function Contact() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitMessage, setSubmitMessage] = useState('')
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false)
+
+  useEffect(() => {
+    // Check if Firebase is available on client side
+    if (db) {
+      setIsFirebaseReady(true)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setSubmitMessage('')
+
+    if (!db) {
+      setSubmitMessage('Service temporarily unavailable. Please try again later.')
+      setIsSubmitting(false)
+      return
+    }
 
     try {
       await addDoc(collection(db, 'inquiries'), {
@@ -146,14 +160,20 @@ export default function Contact() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !isFirebaseReady}
                   className="w-full bg-orange-500 text-white py-3 px-6 rounded-md font-semibold hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                  {isSubmitting ? 'Sending...' : 'Send Message'}
+                  {isSubmitting ? 'Sending...' : !isFirebaseReady ? 'Loading...' : 'Send Message'}
                 </button>
 
+                {!isFirebaseReady && (
+                  <div className="mt-2 text-sm text-blue-600">
+                    Initializing contact form...
+                  </div>
+                )}
+
                 {submitMessage && (
-                  <div className={`mt-4 p-4 rounded-md ${submitMessage.includes('error') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
+                  <div className={`mt-4 p-4 rounded-md ${submitMessage.includes('error') || submitMessage.includes('unavailable') ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
                     {submitMessage}
                   </div>
                 )}
